@@ -11,6 +11,8 @@ GLFWwindow *window;
 VkInstance instance;
 VkSurfaceKHR surface;
 VkPhysicalDevice physicalDevice;
+VkDevice device;
+VkQueue queue;
 
 void initWindow()
 {
@@ -75,11 +77,41 @@ void pickPhysicalDevice() {
     free(devices);
 }
 
+void createLogicalDevice() {
+    VkDeviceQueueCreateInfo queueCreateInfo = {};
+    queueCreateInfo.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
+    queueCreateInfo.queueFamilyIndex = 0;
+    queueCreateInfo.queueCount = 1;
+    float queuePriority = 1.0f;
+    queueCreateInfo.pQueuePriorities = &queuePriority;
+
+    const char* deviceExtentions[] = {"VK_KHR_swapchain"};
+
+    VkDeviceCreateInfo deviceCreateInfo = {};
+    deviceCreateInfo.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
+    deviceCreateInfo.pQueueCreateInfos = &queueCreateInfo;
+    deviceCreateInfo.queueCreateInfoCount = 1;
+    deviceCreateInfo.ppEnabledExtensionNames = deviceExtentions;
+    deviceCreateInfo.enabledExtensionCount = sizeof(deviceExtentions) / sizeof(deviceExtentions[0]);
+    deviceCreateInfo.enabledLayerCount = 0;
+
+    VkResult res = vkCreateDevice(physicalDevice, &deviceCreateInfo, NULL, &device);
+
+    if (res != VK_SUCCESS) {
+        printf("failed to create logical device!");
+		getchar();
+		exit(EXIT_FAILURE);
+    }
+
+    vkGetDeviceQueue(device, 0, 0, &queue);
+}
+
 void initVulkan()
 {
     createInstance();
     createSurface();
     pickPhysicalDevice();
+    createLogicalDevice();
 }
 
 void mainLoop()
