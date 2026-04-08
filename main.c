@@ -6,6 +6,7 @@
 
 #define WIDTH 600
 #define HEIGHT 600
+#define IMAGE_COUNT 3
 
 GLFWwindow *window;
 VkInstance instance;
@@ -13,6 +14,11 @@ VkSurfaceKHR surface;
 VkPhysicalDevice physicalDevice;
 VkDevice device;
 VkQueue queue;
+
+VkSwapchainKHR swapChain;
+VkImage swapChainImages[IMAGE_COUNT];
+VkFormat swapChainImageFormat;
+VkExtent2D swapChainExtent;
 
 void initWindow()
 {
@@ -71,7 +77,7 @@ void pickPhysicalDevice() {
 		exit(EXIT_FAILURE);
     }
 
-    VkPhysicalDevice *devices = (VkPhysicalDevice*)malloc(deviceCount * sizeof(VkPhysicalDevice));
+    VkPhysicalDevice *devices = malloc(deviceCount * sizeof(VkPhysicalDevice));
     vkEnumeratePhysicalDevices(instance, &deviceCount, devices);
     physicalDevice = devices[0];
     free(devices);
@@ -85,19 +91,19 @@ void createLogicalDevice() {
     float queuePriority = 1.0f;
     queueCreateInfo.pQueuePriorities = &queuePriority;
 
-    const char* deviceExtentions[] = {"VK_KHR_swapchain"};
+    const char* deviceExtensions[] = {"VK_KHR_swapchain"};
 
-    VkDeviceCreateInfo deviceCreateInfo = {};
-    deviceCreateInfo.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
-    deviceCreateInfo.pQueueCreateInfos = &queueCreateInfo;
-    deviceCreateInfo.queueCreateInfoCount = 1;
-    deviceCreateInfo.ppEnabledExtensionNames = deviceExtentions;
-    deviceCreateInfo.enabledExtensionCount = sizeof(deviceExtentions) / sizeof(deviceExtentions[0]);
-    deviceCreateInfo.enabledLayerCount = 0;
+    VkDeviceCreateInfo createInfo = {};
+    createInfo.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
+    createInfo.pQueueCreateInfos = &queueCreateInfo;
+    createInfo.queueCreateInfoCount = 1;
+    createInfo.ppEnabledExtensionNames = deviceExtensions;
+    createInfo.enabledExtensionCount = 1;
+    createInfo.enabledLayerCount = 0;
 
-    VkResult res = vkCreateDevice(physicalDevice, &deviceCreateInfo, NULL, &device);
+    VkResult result = vkCreateDevice(physicalDevice, &createInfo, NULL, &device);
 
-    if (res != VK_SUCCESS) {
+    if (result != VK_SUCCESS) {
         printf("failed to create logical device!");
 		getchar();
 		exit(EXIT_FAILURE);
@@ -106,12 +112,48 @@ void createLogicalDevice() {
     vkGetDeviceQueue(device, 0, 0, &queue);
 }
 
+void createSwapChain() {
+    VkExtent2D extent = {WIDTH, HEIGHT};
+
+    VkSwapchainCreateInfoKHR createInfo = {};
+    createInfo.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
+    createInfo.surface = surface;
+    createInfo.minImageCount = IMAGE_COUNT;
+    createInfo.imageFormat = VK_FORMAT_B8G8R8A8_SRGB;
+    createInfo.imageColorSpace = VK_COLOR_SPACE_SRGB_NONLINEAR_KHR;
+    createInfo.imageExtent = extent;
+    createInfo.imageArrayLayers = 1;
+    createInfo.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
+    createInfo.imageSharingMode = VK_SHARING_MODE_EXCLUSIVE;
+    createInfo.preTransform = VK_SURFACE_TRANSFORM_IDENTITY_BIT_KHR;
+    createInfo.compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
+    createInfo.presentMode = VK_PRESENT_MODE_FIFO_KHR;
+    createInfo.clipped = VK_TRUE;
+    createInfo.oldSwapchain = VK_NULL_HANDLE;
+
+    VkResult result = vkCreateSwapchainKHR(device, &createInfo, NULL, &swapChain);
+
+    if (result != VK_SUCCESS) {
+        printf("failed to create swap chain!");
+        getchar();
+		exit(EXIT_FAILURE);
+    }
+
+    uint32_t count;
+    vkGetSwapchainImagesKHR(device, swapChain, &count, NULL);
+    vkGetSwapchainImagesKHR(device, swapChain, &count, swapChainImages);
+
+    swapChainImageFormat = createInfo.imageFormat;
+    swapChainExtent = createInfo.imageExtent;
+}
+
 void initVulkan()
 {
     createInstance();
     createSurface();
     pickPhysicalDevice();
     createLogicalDevice();
+    createSwapChain();
 }
 
 void mainLoop()
