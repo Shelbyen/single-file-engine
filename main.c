@@ -20,6 +20,8 @@ VkImage swapChainImages[IMAGE_COUNT];
 VkFormat swapChainImageFormat;
 VkExtent2D swapChainExtent;
 VkImageView swapChainImageViews[IMAGE_COUNT];
+VkRenderPass renderPass;
+VkFramebuffer swapChainFramebuffers[IMAGE_COUNT];
 
 void initWindow()
 {
@@ -58,24 +60,28 @@ void createInstance()
     }
 }
 
-void createSurface() {
+void createSurface()
+{
     VkResult res = glfwCreateWindowSurface(instance, window, NULL, &surface);
 
-    if (res != VK_SUCCESS) {
+    if (res != VK_SUCCESS)
+    {
         printf("failed to create window surface!");
-		getchar();
-		exit(EXIT_FAILURE);
+        getchar();
+        exit(EXIT_FAILURE);
     }
 }
 
-void pickPhysicalDevice() {
+void pickPhysicalDevice()
+{
     uint32_t deviceCount = 0;
     vkEnumeratePhysicalDevices(instance, &deviceCount, NULL);
-    
-    if (deviceCount == 0) {
+
+    if (deviceCount == 0)
+    {
         printf("failed to find GPUs with Vulkan support!");
-		getchar();
-		exit(EXIT_FAILURE);
+        getchar();
+        exit(EXIT_FAILURE);
     }
 
     VkPhysicalDevice *devices = malloc(deviceCount * sizeof(VkPhysicalDevice));
@@ -84,7 +90,8 @@ void pickPhysicalDevice() {
     free(devices);
 }
 
-void createLogicalDevice() {
+void createLogicalDevice()
+{
     VkDeviceQueueCreateInfo queueCreateInfo = {};
     queueCreateInfo.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
     queueCreateInfo.queueFamilyIndex = 0;
@@ -92,7 +99,7 @@ void createLogicalDevice() {
     float queuePriority = 1.0f;
     queueCreateInfo.pQueuePriorities = &queuePriority;
 
-    const char* deviceExtensions[] = {"VK_KHR_swapchain"};
+    const char *deviceExtensions[] = {"VK_KHR_swapchain"};
 
     VkDeviceCreateInfo createInfo = {};
     createInfo.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
@@ -104,16 +111,18 @@ void createLogicalDevice() {
 
     VkResult result = vkCreateDevice(physicalDevice, &createInfo, NULL, &device);
 
-    if (result != VK_SUCCESS) {
+    if (result != VK_SUCCESS)
+    {
         printf("failed to create logical device!");
-		getchar();
-		exit(EXIT_FAILURE);
+        getchar();
+        exit(EXIT_FAILURE);
     }
 
     vkGetDeviceQueue(device, 0, 0, &queue);
 }
 
-void createSwapChain() {
+void createSwapChain()
+{
     VkExtent2D extent = {WIDTH, HEIGHT};
 
     VkSwapchainCreateInfoKHR createInfo = {};
@@ -134,10 +143,11 @@ void createSwapChain() {
 
     VkResult result = vkCreateSwapchainKHR(device, &createInfo, NULL, &swapChain);
 
-    if (result != VK_SUCCESS) {
+    if (result != VK_SUCCESS)
+    {
         printf("failed to create swap chain!");
         getchar();
-		exit(EXIT_FAILURE);
+        exit(EXIT_FAILURE);
     }
 
     uint32_t count;
@@ -148,7 +158,8 @@ void createSwapChain() {
     swapChainExtent = createInfo.imageExtent;
 }
 
-VkImageView createImageView(VkImage image, VkFormat format, VkImageAspectFlags aspectFlags, uint32_t mipLevels) {
+VkImageView createImageView(VkImage image, VkFormat format, VkImageAspectFlags aspectFlags, uint32_t mipLevels)
+{
     VkImageViewCreateInfo viewInfo = {};
     viewInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
     viewInfo.image = image;
@@ -161,18 +172,92 @@ VkImageView createImageView(VkImage image, VkFormat format, VkImageAspectFlags a
     viewInfo.subresourceRange.aspectMask = aspectFlags;
 
     VkImageView imageView;
-    if (vkCreateImageView(device, &viewInfo, NULL, &imageView) != VK_SUCCESS) {
+    if (vkCreateImageView(device, &viewInfo, NULL, &imageView) != VK_SUCCESS)
+    {
         printf("failed to create render pass!");
         getchar();
-		exit(EXIT_FAILURE);
+        exit(EXIT_FAILURE);
     }
 
     return imageView;
 }
 
-void createImageViews() {
-    for (size_t i = 0; i < IMAGE_COUNT; i++) {
+void createImageViews()
+{
+    for (size_t i = 0; i < IMAGE_COUNT; i++)
+    {
         swapChainImageViews[i] = createImageView(swapChainImages[i], swapChainImageFormat, VK_IMAGE_ASPECT_COLOR_BIT, 1);
+    }
+}
+
+void createRenderPass()
+{
+    VkAttachmentDescription colorAttachment = {};
+    colorAttachment.format = swapChainImageFormat;
+    colorAttachment.samples = VK_SAMPLE_COUNT_1_BIT;
+    colorAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+    colorAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+    colorAttachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+    colorAttachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+    colorAttachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+    colorAttachment.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+
+    VkAttachmentReference colorAttachmentRef = {};
+    colorAttachmentRef.attachment = 0;
+    colorAttachmentRef.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+
+    VkSubpassDescription subpass = {};
+    subpass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
+    subpass.colorAttachmentCount = 1;
+    subpass.pColorAttachments = &colorAttachmentRef;
+
+    VkSubpassDependency dependency = {};
+    dependency.srcSubpass = VK_SUBPASS_EXTERNAL;
+    dependency.dstSubpass = 0;
+    dependency.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+    dependency.srcAccessMask = 0;
+    dependency.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+    dependency.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+
+    VkRenderPassCreateInfo renderPassInfo = {};
+    renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
+    renderPassInfo.attachmentCount = 1;
+    renderPassInfo.pAttachments = &colorAttachment;
+    renderPassInfo.subpassCount = 1;
+    renderPassInfo.pSubpasses = &subpass;
+    renderPassInfo.dependencyCount = 1;
+    renderPassInfo.pDependencies = &dependency;
+
+    if (vkCreateRenderPass(device, &renderPassInfo, NULL, &renderPass) != VK_SUCCESS)
+    {
+        printf("failed to create render pass!");
+        getchar();
+        exit(EXIT_FAILURE);
+    }
+}
+
+void createFramebuffers()
+{
+    for (size_t i = 0; i < IMAGE_COUNT; i++)
+    {
+        VkImageView attachments[] = {
+            swapChainImageViews[i]};
+
+        VkFramebufferCreateInfo framebufferInfo = {};
+        framebufferInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
+        framebufferInfo.renderPass = renderPass;
+        framebufferInfo.attachmentCount = (uint32_t)(sizeof(attachments) / sizeof(attachments[0]));
+        framebufferInfo.pAttachments = attachments;
+        framebufferInfo.width = swapChainExtent.width;
+        framebufferInfo.height = swapChainExtent.height;
+        framebufferInfo.layers = 1;
+
+        if (vkCreateFramebuffer(device, &framebufferInfo, NULL, &swapChainFramebuffers[i]) != VK_SUCCESS)
+        {
+            printf("failed to create framebuffer!");
+            getchar();
+            exit(EXIT_FAILURE);
+        }
     }
 }
 
@@ -184,6 +269,8 @@ void initVulkan()
     createLogicalDevice();
     createSwapChain();
     createImageViews();
+    createRenderPass();
+    createFramebuffers();
 }
 
 void mainLoop()
