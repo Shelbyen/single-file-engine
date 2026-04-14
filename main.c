@@ -32,6 +32,16 @@ VkSemaphore renderFinishedSemaphores[IMAGE_COUNT];
 VkFence inFlightFences[IMAGE_COUNT];
 uint32_t currentFrame = 0;
 
+void chk(VkResult action, const char *errorMessage)
+{
+    if (action != VK_SUCCESS)
+    {
+        printf("%s\n", errorMessage);
+        getchar();
+        exit(EXIT_FAILURE);
+    }
+}
+
 void initWindow()
 {
     glfwInit();
@@ -61,26 +71,12 @@ void createInstance()
     createInfo.enabledLayerCount = sizeof(validationLayers) / sizeof(validationLayers[0]);
     createInfo.ppEnabledLayerNames = validationLayers;
 
-    VkResult instance_result = vkCreateInstance(&createInfo, NULL, &instance);
-
-    if (instance_result != VK_SUCCESS)
-    {
-        printf("Vulkan instance creation failed!");
-        getchar();
-        exit(EXIT_FAILURE);
-    }
+    chk(vkCreateInstance(&createInfo, NULL, &instance), "failed to create vulkan instance!");
 }
 
 void createSurface()
 {
-    VkResult res = glfwCreateWindowSurface(instance, window, NULL, &surface);
-
-    if (res != VK_SUCCESS)
-    {
-        printf("failed to create window surface!");
-        getchar();
-        exit(EXIT_FAILURE);
-    }
+    chk(glfwCreateWindowSurface(instance, window, NULL, &surface), "failed to create window surface!");
 }
 
 void pickPhysicalDevice()
@@ -96,7 +92,7 @@ void pickPhysicalDevice()
     }
 
     VkPhysicalDevice *devices = malloc(deviceCount * sizeof(VkPhysicalDevice));
-    vkEnumeratePhysicalDevices(instance, &deviceCount, devices);
+    chk(vkEnumeratePhysicalDevices(instance, &deviceCount, devices), "failed to filling devices variable!");
     physicalDevice = devices[0];
     free(devices);
 }
@@ -120,14 +116,7 @@ void createLogicalDevice()
     createInfo.enabledExtensionCount = 1;
     createInfo.enabledLayerCount = 0;
 
-    VkResult result = vkCreateDevice(physicalDevice, &createInfo, NULL, &device);
-
-    if (result != VK_SUCCESS)
-    {
-        printf("failed to create logical device!");
-        getchar();
-        exit(EXIT_FAILURE);
-    }
+    chk(vkCreateDevice(physicalDevice, &createInfo, NULL, &device), "failed to create logical device!");
 
     vkGetDeviceQueue(device, 0, 0, &queue);
 }
@@ -152,14 +141,7 @@ void createSwapChain()
     createInfo.clipped = VK_TRUE;
     createInfo.oldSwapchain = VK_NULL_HANDLE;
 
-    VkResult result = vkCreateSwapchainKHR(device, &createInfo, NULL, &swapChain);
-
-    if (result != VK_SUCCESS)
-    {
-        printf("failed to create swap chain!");
-        getchar();
-        exit(EXIT_FAILURE);
-    }
+    chk(vkCreateSwapchainKHR(device, &createInfo, NULL, &swapChain), "failed to create swap chain!");
 
     uint32_t count;
     vkGetSwapchainImagesKHR(device, swapChain, &count, NULL);
@@ -183,12 +165,7 @@ VkImageView createImageView(VkImage image, VkFormat format, VkImageAspectFlags a
     viewInfo.subresourceRange.aspectMask = aspectFlags;
 
     VkImageView imageView;
-    if (vkCreateImageView(device, &viewInfo, NULL, &imageView) != VK_SUCCESS)
-    {
-        printf("failed to create render pass!");
-        getchar();
-        exit(EXIT_FAILURE);
-    }
+    chk(vkCreateImageView(device, &viewInfo, NULL, &imageView), "failed to create render pass!");
 
     return imageView;
 }
@@ -239,12 +216,7 @@ void createRenderPass()
     renderPassInfo.dependencyCount = 1;
     renderPassInfo.pDependencies = &dependency;
 
-    if (vkCreateRenderPass(device, &renderPassInfo, NULL, &renderPass) != VK_SUCCESS)
-    {
-        printf("failed to create render pass!");
-        getchar();
-        exit(EXIT_FAILURE);
-    }
+    chk(vkCreateRenderPass(device, &renderPassInfo, NULL, &renderPass), "failed to create render pass!");
 }
 
 void createFramebuffers()
@@ -263,12 +235,7 @@ void createFramebuffers()
         framebufferInfo.height = swapChainExtent.height;
         framebufferInfo.layers = 1;
 
-        if (vkCreateFramebuffer(device, &framebufferInfo, NULL, &swapChainFramebuffers[i]) != VK_SUCCESS)
-        {
-            printf("failed to create framebuffer!");
-            getchar();
-            exit(EXIT_FAILURE);
-        }
+        chk(vkCreateFramebuffer(device, &framebufferInfo, NULL, &swapChainFramebuffers[i]), "failed to create framebuffer!");
     }
 }
 
@@ -328,17 +295,13 @@ VkShaderModule createShaderModule(const uint32_t *code, uint32_t file_size)
     createInfo.pCode = code;
 
     VkShaderModule shaderModule;
-    if (vkCreateShaderModule(device, &createInfo, NULL, &shaderModule) != VK_SUCCESS)
-    {
-        printf("failed to create shader module!");
-        getchar();
-        exit(EXIT_FAILURE);
-    }
+    chk(vkCreateShaderModule(device, &createInfo, NULL, &shaderModule), "failed to create shader module!");
 
     return shaderModule;
 }
 
-void createGraphicsPipeline() {
+void createGraphicsPipeline()
+{
     uint32_t file_size_vert = 0;
     uint32_t file_size_frag = 0;
     const uint32_t *vertShaderCode = readFile("shaders/vert.spv", &file_size_vert);
@@ -375,7 +338,7 @@ void createGraphicsPipeline() {
     viewport.maxDepth = 1.0f;
 
     VkRect2D scissor = {};
-    scissor.offset = (VkOffset2D) {0, 0};
+    scissor.offset = (VkOffset2D){0, 0};
     scissor.extent = swapChainExtent;
 
     VkPipelineViewportStateCreateInfo viewportState = {};
@@ -403,16 +366,13 @@ void createGraphicsPipeline() {
 
     VkPipelineLayout pipelineLayout;
 
-    if (vkCreatePipelineLayout(device, &pipelineLayoutInfo, NULL, &pipelineLayout) != VK_SUCCESS) {
-        printf("failed to create pipeline layout!");
-        exit(EXIT_FAILURE);
-    }
+    chk(vkCreatePipelineLayout(device, &pipelineLayoutInfo, NULL, &pipelineLayout), "failed to create pipeline layout!");
 
     VkPipelineVertexInputStateCreateInfo vertexInputInfo = {};
     vertexInputInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
     vertexInputInfo.vertexBindingDescriptionCount = 0;
     vertexInputInfo.vertexAttributeDescriptionCount = 0;
-    
+
     VkPipelineColorBlendAttachmentState colorBlendAttachment = {};
     colorBlendAttachment.blendEnable = VK_FALSE;
     colorBlendAttachment.colorWriteMask =
@@ -450,11 +410,7 @@ void createGraphicsPipeline() {
     pipelineInfo.pColorBlendState = &colorBlending;
     pipelineInfo.pMultisampleState = &multisampling;
 
-    if (vkCreateGraphicsPipelines(device, VK_NULL_HANDLE, 1, &pipelineInfo, NULL, &graphicsPipeline) != VK_SUCCESS) {
-        printf("failed to create graphics pipeline!");
-        getchar();
-        exit(EXIT_FAILURE);
-    }
+    chk(vkCreateGraphicsPipelines(device, VK_NULL_HANDLE, 1, &pipelineInfo, NULL, &graphicsPipeline), "failed to create graphics pipeline!");
 }
 
 void createCommandPool()
@@ -464,12 +420,7 @@ void createCommandPool()
     poolInfo.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
     poolInfo.queueFamilyIndex = 0;
 
-    if (vkCreateCommandPool(device, &poolInfo, NULL, &commandPool) != VK_SUCCESS)
-    {
-        printf("failed to create command pool!");
-        getchar();
-        exit(EXIT_FAILURE);
-    }
+    chk(vkCreateCommandPool(device, &poolInfo, NULL, &commandPool), "failed to create command pool!");
 }
 
 void createCommandBuffers()
@@ -480,12 +431,7 @@ void createCommandBuffers()
     allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
     allocInfo.commandBufferCount = IMAGE_COUNT;
 
-    if (vkAllocateCommandBuffers(device, &allocInfo, commandBuffers) != VK_SUCCESS)
-    {
-        printf("failed to allocate command buffers!");
-        getchar();
-        exit(EXIT_FAILURE);
-    }
+    chk(vkAllocateCommandBuffers(device, &allocInfo, commandBuffers), "failed to allocate command buffers!");
 }
 
 void createSyncObjects()
@@ -510,43 +456,50 @@ void createSyncObjects()
     }
 }
 
-
-void recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t imageIndex) {
+void recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t imageIndex)
+{
     VkCommandBufferBeginInfo beginInfo = {};
     beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
 
-    if (vkBeginCommandBuffer(commandBuffer, &beginInfo) != VK_SUCCESS) {
-        printf("failed to begin recording command buffer!");
-        getchar();
-        exit(EXIT_FAILURE);
-    }
+    chk(vkBeginCommandBuffer(commandBuffer, &beginInfo), "failed to begin recording command buffer!");
 
     VkRenderPassBeginInfo renderPassInfo = {};
     renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
     renderPassInfo.renderPass = renderPass;
     renderPassInfo.framebuffer = swapChainFramebuffers[imageIndex];
-    renderPassInfo.renderArea.offset = (VkOffset2D) {0, 0};
+    renderPassInfo.renderArea.offset = (VkOffset2D){0, 0};
     renderPassInfo.renderArea.extent = swapChainExtent;
 
     VkClearValue clearValues[1] = {};
-    clearValues[0].color = (VkClearColorValue) {{0.0f, 0.0f, 0.0f, 1.0f}};
+    clearValues[0].color = (VkClearColorValue){{0.0f, 0.0f, 0.0f, 1.0f}};
 
-    renderPassInfo.clearValueCount = (uint32_t) (sizeof(clearValues) / sizeof(clearValues[0]));
+    renderPassInfo.clearValueCount = (uint32_t)(sizeof(clearValues) / sizeof(clearValues[0]));
     renderPassInfo.pClearValues = clearValues;
 
     vkCmdBeginRenderPass(commandBuffer, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
-        vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline);
-        vkCmdDraw(commandBuffer, 3, 1, 0, 0);
+    vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline);
+    vkCmdDraw(commandBuffer, 3, 1, 0, 0);
     vkCmdEndRenderPass(commandBuffer);
 
-    if (vkEndCommandBuffer(commandBuffer) != VK_SUCCESS) {
+    if (vkEndCommandBuffer(commandBuffer) != VK_SUCCESS)
+    {
         printf("failed to record command buffer!");
         getchar();
         exit(EXIT_FAILURE);
     }
 }
 
-void drawFrame() {
+void cleanup()
+{
+    if (instance != VK_NULL_HANDLE)
+    {
+        vkDestroyInstance(instance, NULL);
+        instance = VK_NULL_HANDLE;
+    }
+}
+
+void drawFrame()
+{
     vkWaitForFences(device, 1, &inFlightFences[currentFrame], VK_TRUE, UINT64_MAX);
     vkResetFences(device, 1, &inFlightFences[currentFrame]);
 
@@ -571,11 +524,7 @@ void drawFrame() {
     submitInfo.signalSemaphoreCount = 1;
     submitInfo.pSignalSemaphores = signalSemaphores;
 
-    if (vkQueueSubmit(queue, 1, &submitInfo, inFlightFences[currentFrame]) != VK_SUCCESS) {
-        printf("failed to submit draw command buffer!");
-        getchar();
-        exit(EXIT_FAILURE);
-    }
+    chk(vkQueueSubmit(queue, 1, &submitInfo, inFlightFences[currentFrame]), "failed to submit draw command buffer!");
 
     VkPresentInfoKHR presentInfo = {};
     presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
@@ -585,7 +534,7 @@ void drawFrame() {
     presentInfo.pSwapchains = &swapChain;
     presentInfo.pImageIndices = &imageIndex;
 
-    vkQueuePresentKHR(queue, &presentInfo);
+    chk(vkQueuePresentKHR(queue, &presentInfo), "failed to present on surface!");
 
     currentFrame = (currentFrame == IMAGE_COUNT - 1) ? 0 : currentFrame + 1;
 }
@@ -620,6 +569,8 @@ int main(int argc, char **argv)
     initWindow();
     initVulkan();
     mainLoop();
+
+    cleanup();
 
     getchar();
     return 0;
