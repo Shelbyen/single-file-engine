@@ -60,13 +60,14 @@ void createInstance()
     appInfo.engineVersion = VK_MAKE_VERSION(1, 0, 0);
     appInfo.apiVersion = VK_API_VERSION_1_3;
 
-    const char *glfwExtensions[] = {"VK_KHR_surface", "VK_KHR_xcb_surface"};
+    uint32_t count;
+    const char **glfwExtensions = glfwGetRequiredInstanceExtensions(&count);
     const char *validationLayers[] = {"VK_LAYER_KHRONOS_validation"};
 
     VkInstanceCreateInfo createInfo = {};
     createInfo.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
     createInfo.pApplicationInfo = &appInfo;
-    createInfo.enabledExtensionCount = sizeof(glfwExtensions) / sizeof(glfwExtensions[0]);
+    createInfo.enabledExtensionCount = count;
     createInfo.ppEnabledExtensionNames = glfwExtensions;
     createInfo.enabledLayerCount = sizeof(validationLayers) / sizeof(validationLayers[0]);
     createInfo.ppEnabledLayerNames = validationLayers;
