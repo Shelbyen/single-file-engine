@@ -4,6 +4,8 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <errno.h>
+#include <functional>
+#include <queue>
 
 #define WIDTH 600
 #define HEIGHT 600
@@ -67,6 +69,27 @@ uint32_t *readFile(const char *file_name, uint32_t *file_size)
     return buffer;
 }
 
+struct DeletionQueue
+{
+    std::deque<std::function<void()>> deletors;
+
+    void push_function(std::function<void()> &&function)
+    {
+        deletors.push_back(function);
+    }
+
+    void flush()
+    {
+        // reverse iterate the deletion queue to execute all the functions
+        for (auto it = deletors.rbegin(); it != deletors.rend(); it++)
+        {
+            (*it)(); // call the function
+        }
+
+        deletors.clear();
+    }
+};
+
 class Engine
 {
 private:
@@ -75,6 +98,7 @@ private:
     VkPhysicalDevice physicalDevice;
     VkDevice device;
     VkQueue queue;
+    bool isInitialized = false;
 
     VkSwapchainKHR swapChain;
     VkImage swapChainImages[IMAGE_COUNT];
@@ -91,6 +115,8 @@ private:
     VkSemaphore renderFinishedSemaphores[IMAGE_COUNT];
     VkFence inFlightFences[IMAGE_COUNT];
     uint32_t currentFrame = 0;
+
+    DeletionQueue mainDeletionQueue;
 
     void createInstance()
     {
@@ -192,6 +218,9 @@ private:
 
         swapChainImageFormat = createInfo.imageFormat;
         swapChainExtent = createInfo.imageExtent;
+
+        mainDeletionQueue.push_function([=]()
+                                        { vkDestroySwapchainKHR(device, swapChain, nullptr); });
     }
 
     VkImageView createImageView(VkImage image, VkFormat format, VkImageAspectFlags aspectFlags, uint32_t mipLevels)
@@ -260,6 +289,9 @@ private:
         renderPassInfo.pDependencies = &dependency;
 
         chk(vkCreateRenderPass(device, &renderPassInfo, NULL, &renderPass), "failed to create render pass!");
+
+        mainDeletionQueue.push_function([=]()
+                                        { vkDestroyRenderPass(device, renderPass, nullptr); });
     }
 
     void createFramebuffers()
@@ -279,6 +311,11 @@ private:
             framebufferInfo.layers = 1;
 
             chk(vkCreateFramebuffer(device, &framebufferInfo, NULL, &swapChainFramebuffers[i]), "failed to create framebuffer!");
+
+            mainDeletionQueue.push_function([=]()
+                                            {
+			    vkDestroyFramebuffer(device, swapChainFramebuffers[i], nullptr);
+			    vkDestroyImageView(device, swapChainImageViews[i], nullptr); });
         }
     }
 
@@ -406,6 +443,14 @@ private:
         pipelineInfo.pMultisampleState = &multisampling;
 
         chk(vkCreateGraphicsPipelines(device, VK_NULL_HANDLE, 1, &pipelineInfo, NULL, &graphicsPipeline), "failed to create graphics pipeline!");
+
+        vkDestroyShaderModule(device, vertShaderModule, nullptr);
+        vkDestroyShaderModule(device, fragShaderModule, nullptr);
+
+        mainDeletionQueue.push_function([=]()
+                                        {
+            vkDestroyPipeline(device, graphicsPipeline, nullptr);
+            vkDestroyPipelineLayout(device, pipelineLayout, nullptr); });
     }
 
     void createCommandPool()
@@ -416,6 +461,8 @@ private:
         poolInfo.queueFamilyIndex = 0;
 
         chk(vkCreateCommandPool(device, &poolInfo, NULL, &commandPool), "failed to create command pool!");
+        mainDeletionQueue.push_function([=]()
+                                        { vkDestroyCommandPool(device, commandPool, nullptr); });
     }
 
     void createCommandBuffers()
@@ -447,6 +494,14 @@ private:
                 printf("failed to create synchronization objects for a frame!");
                 getchar();
                 exit(EXIT_FAILURE);
+            }
+            else
+            {
+                mainDeletionQueue.push_function([=]()
+                                                {
+                    vkDestroyFence(device, inFlightFences[i], nullptr); 
+                    vkDestroySemaphore(device, renderFinishedSemaphores[i], nullptr);
+                    vkDestroySemaphore(device, imageAvailableSemaphores[i], nullptr); });
             }
         }
     }
@@ -509,6 +564,7 @@ public:
         createCommandPool();
         createCommandBuffers();
         createSyncObjects();
+        isInitialized = true;
     }
 
     void drawFrame()
@@ -554,10 +610,16 @@ public:
 
     void cleanup()
     {
-        if (instance != VK_NULL_HANDLE)
+        if (isInitialized)
         {
-            vkDestroyInstance(instance, NULL);
-            instance = VK_NULL_HANDLE;
+            vkDeviceWaitIdle(device);
+
+            mainDeletionQueue.flush();
+
+            vkDestroyDevice(device, nullptr);
+            vkDestroySurfaceKHR(instance, surface, nullptr);
+            vkDestroyInstance(instance, nullptr);
+            glfwDestroyWindow(window);
         }
     }
 };
