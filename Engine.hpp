@@ -6,6 +6,7 @@
 #include <errno.h>
 #include <functional>
 #include <queue>
+#include <algorithm>
 
 #define WIDTH 600
 #define HEIGHT 600
@@ -99,6 +100,7 @@ private:
     VkDevice device;
     VkQueue queue;
     bool isInitialized = false;
+    bool resizeRequested = false;
 
     VkSwapchainKHR swapChain;
     VkImage swapChainImages[IMAGE_COUNT];
@@ -117,6 +119,7 @@ private:
     uint32_t currentFrame = 0;
 
     DeletionQueue mainDeletionQueue;
+    DeletionQueue swapchainDeletionQueue;
 
     void createInstance()
     {
@@ -190,9 +193,17 @@ private:
         vkGetDeviceQueue(device, 0, 0, &queue);
     }
 
-    void createSwapChain()
+    void createSwapChain(int width, int height)
     {
-        VkExtent2D extent = {WIDTH, HEIGHT};
+        VkSurfaceCapabilitiesKHR capabilities;
+		vkGetPhysicalDeviceSurfaceCapabilitiesKHR(physicalDevice, surface, &capabilities);
+		VkExtent2D extent;
+        if (capabilities.currentExtent.width != UINT32_MAX) {
+            extent = capabilities.currentExtent;
+        } else {
+            extent.width = std::clamp(static_cast<uint32_t>(width), capabilities.minImageExtent.width, capabilities.maxImageExtent.width);
+            extent.height = std::clamp(static_cast<uint32_t>(height), capabilities.minImageExtent.height, capabilities.maxImageExtent.height);
+        }
 
         VkSwapchainCreateInfoKHR createInfo = {};
         createInfo.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
@@ -219,8 +230,8 @@ private:
         swapChainImageFormat = createInfo.imageFormat;
         swapChainExtent = createInfo.imageExtent;
 
-        mainDeletionQueue.push_function([=]()
-                                        { vkDestroySwapchainKHR(device, swapChain, nullptr); });
+        swapchainDeletionQueue.push_function([=]()
+                                             { vkDestroySwapchainKHR(device, swapChain, nullptr); });
     }
 
     VkImageView createImageView(VkImage image, VkFormat format, VkImageAspectFlags aspectFlags, uint32_t mipLevels)
@@ -312,10 +323,10 @@ private:
 
             chk(vkCreateFramebuffer(device, &framebufferInfo, NULL, &swapChainFramebuffers[i]), "failed to create framebuffer!");
 
-            mainDeletionQueue.push_function([=]()
-                                            {
-			    vkDestroyFramebuffer(device, swapChainFramebuffers[i], nullptr);
-			    vkDestroyImageView(device, swapChainImageViews[i], nullptr); });
+            swapchainDeletionQueue.push_function([=]()
+                                                 {
+                vkDestroyFramebuffer(device, swapChainFramebuffers[i], nullptr);
+                vkDestroyImageView(device, swapChainImageViews[i], nullptr); });
         }
     }
 
@@ -361,24 +372,31 @@ private:
         inputAssembly.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
         inputAssembly.primitiveRestartEnable = VK_FALSE;
 
-        VkViewport viewport = {};
-        viewport.x = 0.0f;
-        viewport.y = 0.0f;
-        viewport.width = (float)swapChainExtent.width;
-        viewport.height = (float)swapChainExtent.height;
-        viewport.minDepth = 0.0f;
-        viewport.maxDepth = 1.0f;
+        // VkViewport viewport = {};
+        // viewport.x = 0.0f;
+        // viewport.y = 0.0f;
+        // viewport.width = (float)swapChainExtent.width;
+        // viewport.height = (float)swapChainExtent.height;
+        // viewport.minDepth = 0.0f;
+        // viewport.maxDepth = 1.0f;
 
-        VkRect2D scissor = {};
-        scissor.offset = (VkOffset2D){0, 0};
-        scissor.extent = swapChainExtent;
+        // VkRect2D scissor = {};
+        // scissor.offset = (VkOffset2D){0, 0};
+        // scissor.extent = swapChainExtent;
 
         VkPipelineViewportStateCreateInfo viewportState = {};
         viewportState.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
         viewportState.viewportCount = 1;
-        viewportState.pViewports = &viewport; // Статический вьюпорт
         viewportState.scissorCount = 1;
-        viewportState.pScissors = &scissor; // Статическая область отсечения
+
+        VkDynamicState state[] = {
+            VK_DYNAMIC_STATE_VIEWPORT,
+            VK_DYNAMIC_STATE_SCISSOR};
+
+        VkPipelineDynamicStateCreateInfo pipelineDynamicStateCreateInfo{};
+        pipelineDynamicStateCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO;
+        pipelineDynamicStateCreateInfo.dynamicStateCount = 2;
+        pipelineDynamicStateCreateInfo.pDynamicStates = &state[0];
 
         VkPipelineRasterizationStateCreateInfo rasterizer = {};
         rasterizer.sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
@@ -434,6 +452,7 @@ private:
         pipelineInfo.pInputAssemblyState = &inputAssembly;
         pipelineInfo.pViewportState = &viewportState;
         pipelineInfo.pRasterizationState = &rasterizer;
+        pipelineInfo.pDynamicState = &pipelineDynamicStateCreateInfo;
         pipelineInfo.renderPass = renderPass;
         pipelineInfo.subpass = 0;
         pipelineInfo.basePipelineHandle = VK_NULL_HANDLE;
@@ -528,6 +547,22 @@ private:
 
         vkCmdBeginRenderPass(commandBuffer, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
         vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline);
+
+        VkViewport viewport{};
+        viewport.x = 0.0f;
+        viewport.y = 0.0f;
+        viewport.width = (float)swapChainExtent.width;
+        viewport.height = (float)swapChainExtent.height;
+        viewport.minDepth = 0.0f;
+        viewport.maxDepth = 1.0f;
+
+        vkCmdSetViewport(commandBuffer, 0, 1, &viewport);
+
+        VkRect2D scissor{};
+        scissor.offset = {0, 0};
+        scissor.extent = swapChainExtent;
+        vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
+
         vkCmdDraw(commandBuffer, 3, 1, 0, 0);
         vkCmdEndRenderPass(commandBuffer);
 
@@ -539,6 +574,34 @@ private:
         }
     }
 
+    static void framebufferResizeCallback(GLFWwindow *window, int width, int heigh)
+    {
+        Engine *engine = reinterpret_cast<Engine *>(glfwGetWindowUserPointer(window));
+        engine->resizeRequested = true;
+    }
+
+    void resizeSwapchain()
+    {
+        int width = 0, height = 0;
+		glfwGetFramebufferSize(window, &width, &height);
+
+		while (width == 0 || height == 0) 
+		{
+			glfwGetFramebufferSize(window, &width, &height);
+			glfwWaitEvents();
+		}
+
+        vkDeviceWaitIdle(device);
+
+        swapchainDeletionQueue.flush();
+
+        createSwapChain(width, height);
+		createImageViews();
+		createFramebuffers();
+
+        resizeRequested = false;
+    }
+
 public:
     GLFWwindow *window;
 
@@ -546,8 +609,10 @@ public:
     {
         glfwInit();
         glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
-        glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
+        glfwWindowHint(GLFW_RESIZABLE, GLFW_TRUE);
         window = glfwCreateWindow(WIDTH, HEIGHT, "Vulkan window", NULL, NULL);
+        glfwSetFramebufferSizeCallback(window, framebufferResizeCallback);
+        glfwSetWindowUserPointer(window, this);
     }
 
     void initVulkan()
@@ -556,7 +621,7 @@ public:
         createSurface();
         pickPhysicalDevice();
         createLogicalDevice();
-        createSwapChain();
+        createSwapChain(WIDTH, HEIGHT);
         createImageViews();
         createRenderPass();
         createFramebuffers();
@@ -573,7 +638,13 @@ public:
         vkResetFences(device, 1, &inFlightFences[currentFrame]);
 
         uint32_t imageIndex;
-        vkAcquireNextImageKHR(device, swapChain, UINT64_MAX, imageAvailableSemaphores[currentFrame], VK_NULL_HANDLE, &imageIndex);
+        VkResult result = vkAcquireNextImageKHR(device, swapChain, UINT64_MAX, imageAvailableSemaphores[currentFrame], VK_NULL_HANDLE, &imageIndex);
+
+        if (result == VK_ERROR_OUT_OF_DATE_KHR)
+        {
+            resizeSwapchain();
+            return;
+        }
 
         vkResetCommandBuffer(commandBuffers[currentFrame], 0);
         recordCommandBuffer(commandBuffers[currentFrame], imageIndex);
@@ -603,7 +674,16 @@ public:
         presentInfo.pSwapchains = &swapChain;
         presentInfo.pImageIndices = &imageIndex;
 
-        chk(vkQueuePresentKHR(queue, &presentInfo), "failed to present on surface!");
+        result = vkQueuePresentKHR(queue, &presentInfo);
+
+        if (result == VK_ERROR_OUT_OF_DATE_KHR)
+        {
+            resizeRequested = true;
+        }
+
+        if (resizeRequested) {
+            resizeSwapchain();
+        }
 
         currentFrame = (currentFrame == IMAGE_COUNT - 1) ? 0 : currentFrame + 1;
     }
@@ -614,6 +694,7 @@ public:
         {
             vkDeviceWaitIdle(device);
 
+            swapchainDeletionQueue.flush();
             mainDeletionQueue.flush();
 
             vkDestroyDevice(device, nullptr);
