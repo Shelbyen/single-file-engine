@@ -435,8 +435,8 @@ private:
     {
         uint32_t file_size_vert = 0;
         uint32_t file_size_frag = 0;
-        const uint32_t *vertShaderCode = readFile("shaders/vert.spv", &file_size_vert);
-        const uint32_t *fragShaderCode = readFile("shaders/frag.spv", &file_size_frag);
+        const uint32_t *vertShaderCode = readFile("shaders/shader.vert.spv", &file_size_vert);
+        const uint32_t *fragShaderCode = readFile("shaders/shader.frag.spv", &file_size_frag);
 
         VkShaderModule vertShaderModule = createShaderModule(vertShaderCode, file_size_vert);
         VkShaderModule fragShaderModule = createShaderModule(fragShaderCode, file_size_frag);
