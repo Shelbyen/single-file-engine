@@ -17,19 +17,19 @@
 #define HEIGHT 600
 #define IMAGE_COUNT 3
 
-
 struct Figure
 {
     short type;
 };
 
-struct Circle 
+struct Circle
 {
     // Your existing custom constructor
     Circle(float cx,
-    float cy,
-    float radius,
-    float r, float g, float b) : cx(cx), cy(cy), radius(radius), r(r), g(g), b(b) {
+           float cy,
+           float radius,
+           float r, float g, float b) : cx(cx), cy(cy), radius(radius), r(r), g(g), b(b)
+    {
     }
 
     float cx;
@@ -37,7 +37,6 @@ struct Circle
     float radius;
     float r, g, b;
 };
-
 
 class IGuiLayer
 {
@@ -491,154 +490,162 @@ private:
         vi.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
 
         VkPipelineInputAssemblyStateCreateInfo ia = {};
-        ia.sType    = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
+        ia.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
         ia.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
- 
+
         VkPipelineViewportStateCreateInfo vp = {};
-        vp.sType         = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
+        vp.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
         vp.viewportCount = 1;
-        vp.scissorCount  = 1;
- 
-        VkDynamicState dynStates[2] = { VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR };
+        vp.scissorCount = 1;
+
+        VkDynamicState dynStates[2] = {VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR};
         VkPipelineDynamicStateCreateInfo dyn = {};
-        dyn.sType             = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO;
+        dyn.sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO;
         dyn.dynamicStateCount = 2;
-        dyn.pDynamicStates    = dynStates;
- 
+        dyn.pDynamicStates = dynStates;
+
         VkPipelineRasterizationStateCreateInfo rast = {};
-        rast.sType       = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
+        rast.sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
         rast.polygonMode = VK_POLYGON_MODE_FILL;
-        rast.lineWidth   = 1.0f;
-        rast.cullMode    = VK_CULL_MODE_NONE;
- 
+        rast.lineWidth = 1.0f;
+        rast.cullMode = VK_CULL_MODE_NONE;
+
         VkPipelineMultisampleStateCreateInfo ms = {};
-        ms.sType                = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
+        ms.sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
         ms.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
- 
+
         VkPipelineColorBlendAttachmentState blendOff = {};
-        blendOff.blendEnable    = VK_FALSE;
+        blendOff.blendEnable = VK_FALSE;
         blendOff.colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT |
                                   VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
- 
+
         VkPipelineColorBlendStateCreateInfo cbOff = {};
-        cbOff.sType           = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
+        cbOff.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
         cbOff.attachmentCount = 1;
-        cbOff.pAttachments    = &blendOff;
- 
+        cbOff.pAttachments = &blendOff;
+
         VkPipelineLayoutCreateInfo bgLayoutCI = {};
         bgLayoutCI.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
         chk(vkCreatePipelineLayout(device, &bgLayoutCI, NULL, &bgPipelineLayout),
             "failed to create bg pipeline layout!");
         mainDeletionQueue.push_function([=]()
-            { vkDestroyPipelineLayout(device, bgPipelineLayout, nullptr); });
- 
+                                        { vkDestroyPipelineLayout(device, bgPipelineLayout, nullptr); });
+
         uint32_t vsz, fsz;
         auto *bv = readFile("shaders/bg.vert.spv", &vsz);
         auto *bf = readFile("shaders/bg.frag.spv", &fsz);
         VkShaderModule bgVert = createShaderModule(bv, vsz);
         VkShaderModule bgFrag = createShaderModule(bf, fsz);
-        free(bv); free(bf);
- 
+        free(bv);
+        free(bf);
+
         VkPipelineShaderStageCreateInfo bgStages[2];
-        bgStages[0] = {}; bgStages[0].sType  = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
-        bgStages[0].stage  = VK_SHADER_STAGE_VERTEX_BIT;
-        bgStages[0].module = bgVert; bgStages[0].pName = "main";
-        bgStages[1] = {}; bgStages[1].sType  = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
-        bgStages[1].stage  = VK_SHADER_STAGE_FRAGMENT_BIT;
-        bgStages[1].module = bgFrag; bgStages[1].pName = "main";
- 
+        bgStages[0] = {};
+        bgStages[0].sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+        bgStages[0].stage = VK_SHADER_STAGE_VERTEX_BIT;
+        bgStages[0].module = bgVert;
+        bgStages[0].pName = "main";
+        bgStages[1] = {};
+        bgStages[1].sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+        bgStages[1].stage = VK_SHADER_STAGE_FRAGMENT_BIT;
+        bgStages[1].module = bgFrag;
+        bgStages[1].pName = "main";
+
         VkGraphicsPipelineCreateInfo bgPI = {};
-        bgPI.sType               = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
-        bgPI.stageCount          = 2;
-        bgPI.pStages             = bgStages;
-        bgPI.pVertexInputState   = &vi;
+        bgPI.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
+        bgPI.stageCount = 2;
+        bgPI.pStages = bgStages;
+        bgPI.pVertexInputState = &vi;
         bgPI.pInputAssemblyState = &ia;
-        bgPI.pViewportState      = &vp;
+        bgPI.pViewportState = &vp;
         bgPI.pRasterizationState = &rast;
-        bgPI.pMultisampleState   = &ms;
-        bgPI.pColorBlendState    = &cbOff;
-        bgPI.pDynamicState       = &dyn;
-        bgPI.layout              = bgPipelineLayout;
-        bgPI.renderPass          = renderPass;
-        bgPI.subpass             = 0;
- 
+        bgPI.pMultisampleState = &ms;
+        bgPI.pColorBlendState = &cbOff;
+        bgPI.pDynamicState = &dyn;
+        bgPI.layout = bgPipelineLayout;
+        bgPI.renderPass = renderPass;
+        bgPI.subpass = 0;
+
         chk(vkCreateGraphicsPipelines(device, VK_NULL_HANDLE, 1, &bgPI, NULL, &bgPipeline),
             "failed to create bg pipeline!");
         mainDeletionQueue.push_function([=]()
-            { vkDestroyPipeline(device, bgPipeline, nullptr); });
- 
+                                        { vkDestroyPipeline(device, bgPipeline, nullptr); });
+
         vkDestroyShaderModule(device, bgVert, nullptr);
         vkDestroyShaderModule(device, bgFrag, nullptr);
- 
+
         VkPipelineColorBlendAttachmentState blendOn = {};
-        blendOn.blendEnable         = VK_TRUE;
-        blendOn.colorWriteMask      = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT |
-                                      VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
+        blendOn.blendEnable = VK_TRUE;
+        blendOn.colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT |
+                                 VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
         blendOn.srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA;
         blendOn.dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
-        blendOn.colorBlendOp        = VK_BLEND_OP_ADD;
+        blendOn.colorBlendOp = VK_BLEND_OP_ADD;
         blendOn.srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE;
         blendOn.dstAlphaBlendFactor = VK_BLEND_FACTOR_ZERO;
-        blendOn.alphaBlendOp        = VK_BLEND_OP_ADD;
- 
+        blendOn.alphaBlendOp = VK_BLEND_OP_ADD;
+
         VkPipelineColorBlendStateCreateInfo cbOn = {};
-        cbOn.sType           = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
+        cbOn.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
         cbOn.attachmentCount = 1;
-        cbOn.pAttachments    = &blendOn;
- 
+        cbOn.pAttachments = &blendOn;
+
         VkPushConstantRange pcRange = {};
         pcRange.stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
-        pcRange.offset     = 0;
-        pcRange.size       = sizeof(Circle);
- 
+        pcRange.offset = 0;
+        pcRange.size = sizeof(Circle);
+
         VkPipelineLayoutCreateInfo circleLayoutCI = {};
-        circleLayoutCI.sType                  = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
+        circleLayoutCI.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
         circleLayoutCI.pushConstantRangeCount = 1;
-        circleLayoutCI.pPushConstantRanges    = &pcRange;
+        circleLayoutCI.pPushConstantRanges = &pcRange;
         chk(vkCreatePipelineLayout(device, &circleLayoutCI, NULL, &figurePipelineLayout),
             "failed to create circle pipeline layout!");
         mainDeletionQueue.push_function([=]()
-            { vkDestroyPipelineLayout(device, figurePipelineLayout, nullptr); });
- 
+                                        { vkDestroyPipelineLayout(device, figurePipelineLayout, nullptr); });
 
         auto *cv = readFile("shaders/figure.vert.spv", &vsz);
         auto *cf = readFile("shaders/figure.frag.spv", &fsz);
         VkShaderModule circleVert = createShaderModule(cv, vsz);
         VkShaderModule circleFrag = createShaderModule(cf, fsz);
-        free(cv); free(cf);
- 
+        free(cv);
+        free(cf);
+
         VkPipelineShaderStageCreateInfo circleStages[2];
-        circleStages[0] = {}; circleStages[0].sType  = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
-        circleStages[0].stage  = VK_SHADER_STAGE_VERTEX_BIT;
-        circleStages[0].module = circleVert; circleStages[0].pName = "main";
-        circleStages[1] = {}; circleStages[1].sType  = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
-        circleStages[1].stage  = VK_SHADER_STAGE_FRAGMENT_BIT;
-        circleStages[1].module = circleFrag; circleStages[1].pName = "main";
- 
+        circleStages[0] = {};
+        circleStages[0].sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+        circleStages[0].stage = VK_SHADER_STAGE_VERTEX_BIT;
+        circleStages[0].module = circleVert;
+        circleStages[0].pName = "main";
+        circleStages[1] = {};
+        circleStages[1].sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+        circleStages[1].stage = VK_SHADER_STAGE_FRAGMENT_BIT;
+        circleStages[1].module = circleFrag;
+        circleStages[1].pName = "main";
+
         VkGraphicsPipelineCreateInfo circlePI = {};
-        circlePI.sType               = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
-        circlePI.stageCount          = 2;
-        circlePI.pStages             = circleStages;
-        circlePI.pVertexInputState   = &vi;
+        circlePI.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
+        circlePI.stageCount = 2;
+        circlePI.pStages = circleStages;
+        circlePI.pVertexInputState = &vi;
         circlePI.pInputAssemblyState = &ia;
-        circlePI.pViewportState      = &vp;
+        circlePI.pViewportState = &vp;
         circlePI.pRasterizationState = &rast;
-        circlePI.pMultisampleState   = &ms;
-        circlePI.pColorBlendState    = &cbOn;
-        circlePI.pDynamicState       = &dyn;
-        circlePI.layout              = figurePipelineLayout;
-        circlePI.renderPass          = renderPass;
-        circlePI.subpass             = 1;   // subpass 1
- 
+        circlePI.pMultisampleState = &ms;
+        circlePI.pColorBlendState = &cbOn;
+        circlePI.pDynamicState = &dyn;
+        circlePI.layout = figurePipelineLayout;
+        circlePI.renderPass = renderPass;
+        circlePI.subpass = 1; // subpass 1
+
         chk(vkCreateGraphicsPipelines(device, VK_NULL_HANDLE, 1, &circlePI, NULL, &figurePipeline),
             "failed to create circle pipeline!");
         mainDeletionQueue.push_function([=]()
-            { vkDestroyPipeline(device, figurePipeline, nullptr); });
- 
+                                        { vkDestroyPipeline(device, figurePipeline, nullptr); });
+
         vkDestroyShaderModule(device, circleVert, nullptr);
         vkDestroyShaderModule(device, circleFrag, nullptr);
     }
-
 
     void createCommandPool()
     {
@@ -752,18 +759,18 @@ private:
         vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
 
         uint32_t figurecount = static_cast<uint32_t>(figures.size());
-		for (uint32_t j = 0; j < figurecount; j++) {
-			// [POI] Pass static sphere data as push constants
-			vkCmdPushConstants(
-				commandBuffer,
-				figurePipelineLayout,
-				VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
-				0,
-				sizeof(Circle),
-				&figures[j]);
-			vkCmdDraw(commandBuffer, 6, 1, 0, 0);
-		}
-
+        for (uint32_t j = 0; j < figurecount; j++)
+        {
+            // [POI] Pass static sphere data as push constants
+            vkCmdPushConstants(
+                commandBuffer,
+                figurePipelineLayout,
+                VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
+                0,
+                sizeof(Circle),
+                &figures[j]);
+            vkCmdDraw(commandBuffer, 6, 1, 0, 0);
+        }
 
         vkCmdEndRenderPass(commandBuffer);
 
