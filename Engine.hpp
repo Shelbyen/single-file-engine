@@ -17,6 +17,9 @@
 #define HEIGHT 600
 #define IMAGE_COUNT 3
 
+#define BACKGROUND_SHADER "shaders/bg"
+#define FIGURE_SHADER "shaders/figure"
+
 struct Figure
 {
     short type;
@@ -532,8 +535,8 @@ private:
                                         { vkDestroyPipelineLayout(device, bgPipelineLayout, nullptr); });
 
         uint32_t vsz, fsz;
-        auto *bv = readFile("shaders/bg.vert.spv", &vsz);
-        auto *bf = readFile("shaders/bg.frag.spv", &fsz);
+        auto *bv = readFile(BACKGROUND_SHADER".vert.spv", &vsz);
+        auto *bf = readFile(BACKGROUND_SHADER".frag.spv", &fsz);
         VkShaderModule bgVert = createShaderModule(bv, vsz);
         VkShaderModule bgFrag = createShaderModule(bf, fsz);
         free(bv);
@@ -604,8 +607,8 @@ private:
         mainDeletionQueue.push_function([=]()
                                         { vkDestroyPipelineLayout(device, figurePipelineLayout, nullptr); });
 
-        auto *cv = readFile("shaders/figure.vert.spv", &vsz);
-        auto *cf = readFile("shaders/figure.frag.spv", &fsz);
+        auto *cv = readFile(FIGURE_SHADER".vert.spv", &vsz);
+        auto *cf = readFile(FIGURE_SHADER".frag.spv", &fsz);
         VkShaderModule circleVert = createShaderModule(cv, vsz);
         VkShaderModule circleFrag = createShaderModule(cf, fsz);
         free(cv);
