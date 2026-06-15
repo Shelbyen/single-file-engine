@@ -43,6 +43,13 @@ struct Circle
     float r, g, b;
 };
 
+
+struct BgPushData {
+    float _pad;
+};
+
+typedef void (*BgDataCallback)(VkCommandBuffer cmd, VkPipelineLayout layout, void* userdata);
+
 class IGuiLayer
 {
 public:
@@ -157,7 +164,10 @@ private:
     // subpass 0 - background
     VkPipeline bgPipeline;
     VkPipelineLayout bgPipelineLayout;
-    // subpass 1 — figures
+    BgDataCallback bgDataCallback = nullptr;
+    void* bgUserdata = nullptr;
+
+    // subpass 1 - figures
     VkPipeline figurePipeline;
     VkPipelineLayout figurePipelineLayout;
 
@@ -344,7 +354,7 @@ private:
         subpassBg.colorAttachmentCount = 1;
         subpassBg.pColorAttachments = &colorAttachmentRef;
 
-        // subpass 1 — figures
+        // subpass 1 - figures
         VkSubpassDescription subpassFigures = {};
         subpassFigures.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
         subpassFigures.colorAttachmentCount = 1;
@@ -529,8 +539,15 @@ private:
         cbOff.attachmentCount = 1;
         cbOff.pAttachments = &blendOff;
 
+        VkPushConstantRange bgPcRange = {};
+        bgPcRange.stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
+        bgPcRange.offset     = 0;
+        bgPcRange.size       = sizeof(BgPushData);
+
         VkPipelineLayoutCreateInfo bgLayoutCI = {};
         bgLayoutCI.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
+        bgLayoutCI.pushConstantRangeCount = 1;
+        bgLayoutCI.pPushConstantRanges = &bgPcRange;
         chk(vkCreatePipelineLayout(device, &bgLayoutCI, NULL, &bgPipelineLayout),
             "failed to create bg pipeline layout!");
         mainDeletionQueue.push_function([=]()
@@ -754,6 +771,9 @@ private:
         scissor.offset = {0, 0};
         scissor.extent = swapChainExtent;
         vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
+
+        if (bgDataCallback)
+            bgDataCallback(commandBuffer, bgPipelineLayout, bgUserdata);
 
         vkCmdDraw(commandBuffer, 3, 1, 0, 0);
 
@@ -987,6 +1007,11 @@ public:
     {
         layer->onDetach();
         guiLayers.erase(std::remove(guiLayers.begin(), guiLayers.end(), layer), guiLayers.end());
+    }
+
+    void setBgDataCallback(BgDataCallback cb, void* userdata) {
+        bgDataCallback = cb;
+        bgUserdata     = userdata;
     }
 
     void drawFrame()

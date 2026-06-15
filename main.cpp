@@ -33,8 +33,6 @@ int main(int argc, char **argv)
     engine.pushLayer(&debugPanel);
 
     engine.figures.push_back(Circle(0, 0, 0.05, 0, 0, 0));
-    // engine.figures.push_back(Circle(0, 0, 10, 0, 0, 0));
-    // engine.figures.push_back(Circle(0.5, 0.5, 100, 1, 1, 1));
 
     mainLoop(engine);
 
