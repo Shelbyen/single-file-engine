@@ -164,7 +164,7 @@ private:
     VkPipelineLayout bgPipelineLayout;
 
     typedef void (*BgDataCallback)(VkCommandBuffer cmd, VkPipelineLayout layout, void *userdata);
-    typedef void (*BgSetupCallback)(VkDevice device, VkPhysicalDevice physicalDevice, VkDescriptorSetLayout *outLayout, void *userdata);
+    typedef void (*BgSetupCallback)(VkDescriptorSetLayout *outLayout, void *userdata);
     typedef void (*BgUpdateCallback)(void *userdata);
 
     BgSetupCallback bgSetupCallback = nullptr;
@@ -571,7 +571,7 @@ private:
         VkDescriptorSetLayout bgDescriptorLayout = {};
         if (bgSetupCallback)
         {
-            bgSetupCallback(device, physicalDevice, &bgDescriptorLayout, bgUserdata);
+            bgSetupCallback(&bgDescriptorLayout, bgUserdata);
             bgLayoutCI.setLayoutCount = 1;
             bgLayoutCI.pSetLayouts = &bgDescriptorLayout;
         }
