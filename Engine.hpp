@@ -164,7 +164,7 @@ private:
     VkPipelineLayout bgPipelineLayout;
 
     typedef void (*BgDataCallback)(VkCommandBuffer cmd, VkPipelineLayout layout, void *userdata);
-    typedef void (*BgSetupCallback)(VkDescriptorSetLayout *outLayout, void *userdata);
+    typedef void (*BgSetupCallback)(VkDescriptorSetLayout *outLayout, uint32_t* outPushConstantSize, void *userdata);
     typedef void (*BgUpdateCallback)(void *userdata);
 
     BgSetupCallback bgSetupCallback = nullptr;
@@ -558,23 +558,29 @@ private:
         cbOff.attachmentCount = 1;
         cbOff.pAttachments = &blendOff;
 
-        VkPushConstantRange bgPcRange = {};
-        bgPcRange.stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
-        bgPcRange.offset = 0;
-        bgPcRange.size = sizeof(BgPushData);
+        
 
         VkPipelineLayoutCreateInfo bgLayoutCI = {};
         bgLayoutCI.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
-        bgLayoutCI.pushConstantRangeCount = 1;
-        bgLayoutCI.pPushConstantRanges = &bgPcRange;
 
+        uint32_t bgPushConstantSize = 0;
         VkDescriptorSetLayout bgDescriptorLayout = {};
         if (bgSetupCallback)
         {
-            bgSetupCallback(&bgDescriptorLayout, bgUserdata);
+            bgSetupCallback(&bgDescriptorLayout, &bgPushConstantSize, bgUserdata);
             bgLayoutCI.setLayoutCount = 1;
             bgLayoutCI.pSetLayouts = &bgDescriptorLayout;
         }
+        // TODO: Change system
+        if (bgPushConstantSize > 0) {
+            VkPushConstantRange bgPcRange = {};
+            bgPcRange.stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
+            bgPcRange.offset     = 0;
+            bgPcRange.size       = bgPushConstantSize;
+            bgLayoutCI.pushConstantRangeCount = 1;
+            bgLayoutCI.pPushConstantRanges    = &bgPcRange;
+        }
+
 
         chk(vkCreatePipelineLayout(device, &bgLayoutCI, NULL, &bgPipelineLayout),
             "failed to create bg pipeline layout!");
