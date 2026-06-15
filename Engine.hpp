@@ -1096,6 +1096,65 @@ public:
         return ds;
     }
 
+        VkDescriptorSet createSSBO(VkDeviceSize size, VkDescriptorSetLayout layout, void **outMapped, VkBuffer *outBuffer, VkDeviceMemory *outMemory)
+    {
+        VkBufferCreateInfo bufCI = {};
+        bufCI.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+        bufCI.size = size;
+        bufCI.usage = VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
+        bufCI.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+        vkCreateBuffer(device, &bufCI, NULL, outBuffer);
+
+        VkMemoryRequirements memReq;
+        vkGetBufferMemoryRequirements(device, *outBuffer, &memReq);
+
+        VkMemoryAllocateInfo allocInfo = {};
+        allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+        allocInfo.allocationSize = memReq.size;
+        allocInfo.memoryTypeIndex = findMemoryType(
+            memReq.memoryTypeBits,
+            VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+        vkAllocateMemory(device, &allocInfo, NULL, outMemory);
+        vkBindBufferMemory(device, *outBuffer, *outMemory, 0);
+        vkMapMemory(device, *outMemory, 0, size, 0, outMapped);
+
+        VkDescriptorPool pool;
+        VkDescriptorPoolSize poolSize = {};
+        poolSize.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+        poolSize.descriptorCount = 1;
+
+        VkDescriptorPoolCreateInfo poolCI = {};
+        poolCI.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
+        poolCI.maxSets = 1;
+        poolCI.poolSizeCount = 1;
+        poolCI.pPoolSizes = &poolSize;
+        vkCreateDescriptorPool(device, &poolCI, NULL, &pool);
+
+        VkDescriptorSet ds;
+        VkDescriptorSetAllocateInfo dsAlloc = {};
+        dsAlloc.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+        dsAlloc.descriptorPool = pool;
+        dsAlloc.descriptorSetCount = 1;
+        dsAlloc.pSetLayouts = &layout;
+        vkAllocateDescriptorSets(device, &dsAlloc, &ds);
+
+        VkDescriptorBufferInfo bufInfo = {};
+        bufInfo.buffer = *outBuffer;
+        bufInfo.offset = 0;
+        bufInfo.range = size;
+
+        VkWriteDescriptorSet write = {};
+        write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+        write.dstSet = ds;
+        write.dstBinding = 0;
+        write.descriptorCount = 1;
+        write.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+        write.pBufferInfo = &bufInfo;
+        vkUpdateDescriptorSets(device, 1, &write, 0, NULL);
+
+        return ds;
+    }
+
     void setBgCallbacks(BgSetupCallback setup, BgDataCallback data, BgUpdateCallback update, void *userdata)
     {
         bgSetupCallback = setup;
