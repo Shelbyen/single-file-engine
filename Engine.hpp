@@ -43,12 +43,10 @@ struct Circle
     float r, g, b;
 };
 
-
-struct BgPushData {
+struct BgPushData
+{
     float _pad;
 };
-
-typedef void (*BgDataCallback)(VkCommandBuffer cmd, VkPipelineLayout layout, void* userdata);
 
 class IGuiLayer
 {
@@ -164,8 +162,15 @@ private:
     // subpass 0 - background
     VkPipeline bgPipeline;
     VkPipelineLayout bgPipelineLayout;
+
+    typedef void (*BgDataCallback)(VkCommandBuffer cmd, VkPipelineLayout layout, void *userdata);
+    typedef void (*BgSetupCallback)(VkDevice device, VkPhysicalDevice physicalDevice, VkDescriptorSetLayout *outLayout, void *userdata);
+    typedef void (*BgUpdateCallback)(void *userdata);
+
+    BgSetupCallback bgSetupCallback = nullptr;
     BgDataCallback bgDataCallback = nullptr;
-    void* bgUserdata = nullptr;
+    BgUpdateCallback bgUpdateCallback = nullptr;
+    void *bgUserdata = nullptr;
 
     // subpass 1 - figures
     VkPipeline figurePipeline;
@@ -188,6 +193,20 @@ private:
     DeletionQueue swapchainDeletionQueue;
 
     std::vector<IGuiLayer *> guiLayers;
+
+    uint32_t findMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties)
+    {
+        VkPhysicalDeviceMemoryProperties memProps;
+        vkGetPhysicalDeviceMemoryProperties(physicalDevice, &memProps);
+        for (uint32_t i = 0; i < memProps.memoryTypeCount; i++)
+        {
+            if ((typeFilter & (1 << i)) &&
+                (memProps.memoryTypes[i].propertyFlags & properties) == properties)
+                return i;
+        }
+        printf("failed to find suitable memory type!\n");
+        exit(EXIT_FAILURE);
+    }
 
     void createInstance()
     {
@@ -541,21 +560,30 @@ private:
 
         VkPushConstantRange bgPcRange = {};
         bgPcRange.stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
-        bgPcRange.offset     = 0;
-        bgPcRange.size       = sizeof(BgPushData);
+        bgPcRange.offset = 0;
+        bgPcRange.size = sizeof(BgPushData);
 
         VkPipelineLayoutCreateInfo bgLayoutCI = {};
         bgLayoutCI.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
         bgLayoutCI.pushConstantRangeCount = 1;
         bgLayoutCI.pPushConstantRanges = &bgPcRange;
+
+        VkDescriptorSetLayout bgDescriptorLayout = {};
+        if (bgSetupCallback)
+        {
+            bgSetupCallback(device, physicalDevice, &bgDescriptorLayout, bgUserdata);
+            bgLayoutCI.setLayoutCount = 1;
+            bgLayoutCI.pSetLayouts = &bgDescriptorLayout;
+        }
+
         chk(vkCreatePipelineLayout(device, &bgLayoutCI, NULL, &bgPipelineLayout),
             "failed to create bg pipeline layout!");
         mainDeletionQueue.push_function([=]()
                                         { vkDestroyPipelineLayout(device, bgPipelineLayout, nullptr); });
 
         uint32_t vsz, fsz;
-        auto *bv = readFile(BACKGROUND_SHADER".vert.spv", &vsz);
-        auto *bf = readFile(BACKGROUND_SHADER".frag.spv", &fsz);
+        auto *bv = readFile(BACKGROUND_SHADER ".vert.spv", &vsz);
+        auto *bf = readFile(BACKGROUND_SHADER ".frag.spv", &fsz);
         VkShaderModule bgVert = createShaderModule(bv, vsz);
         VkShaderModule bgFrag = createShaderModule(bf, fsz);
         free(bv);
@@ -626,8 +654,8 @@ private:
         mainDeletionQueue.push_function([=]()
                                         { vkDestroyPipelineLayout(device, figurePipelineLayout, nullptr); });
 
-        auto *cv = readFile(FIGURE_SHADER".vert.spv", &vsz);
-        auto *cf = readFile(FIGURE_SHADER".frag.spv", &fsz);
+        auto *cv = readFile(FIGURE_SHADER ".vert.spv", &vsz);
+        auto *cf = readFile(FIGURE_SHADER ".frag.spv", &fsz);
         VkShaderModule circleVert = createShaderModule(cv, vsz);
         VkShaderModule circleFrag = createShaderModule(cf, fsz);
         free(cv);
@@ -1009,9 +1037,77 @@ public:
         guiLayers.erase(std::remove(guiLayers.begin(), guiLayers.end(), layer), guiLayers.end());
     }
 
-    void setBgDataCallback(BgDataCallback cb, void* userdata) {
+    VkDescriptorSet createUbo(VkDeviceSize size, VkDescriptorSetLayout layout, void **outMapped, VkBuffer *outBuffer, VkDeviceMemory *outMemory)
+    {
+        VkBufferCreateInfo bufCI = {};
+        bufCI.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+        bufCI.size = size;
+        bufCI.usage = VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT;
+        bufCI.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+        vkCreateBuffer(device, &bufCI, NULL, outBuffer);
+
+        VkMemoryRequirements memReq;
+        vkGetBufferMemoryRequirements(device, *outBuffer, &memReq);
+
+        VkMemoryAllocateInfo allocInfo = {};
+        allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+        allocInfo.allocationSize = memReq.size;
+        allocInfo.memoryTypeIndex = findMemoryType(
+            memReq.memoryTypeBits,
+            VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+        vkAllocateMemory(device, &allocInfo, NULL, outMemory);
+        vkBindBufferMemory(device, *outBuffer, *outMemory, 0);
+        vkMapMemory(device, *outMemory, 0, size, 0, outMapped);
+
+        VkDescriptorPool pool;
+        VkDescriptorPoolSize poolSize = {};
+        poolSize.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+        poolSize.descriptorCount = 1;
+
+        VkDescriptorPoolCreateInfo poolCI = {};
+        poolCI.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
+        poolCI.maxSets = 1;
+        poolCI.poolSizeCount = 1;
+        poolCI.pPoolSizes = &poolSize;
+        vkCreateDescriptorPool(device, &poolCI, NULL, &pool);
+
+        VkDescriptorSet ds;
+        VkDescriptorSetAllocateInfo dsAlloc = {};
+        dsAlloc.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+        dsAlloc.descriptorPool = pool;
+        dsAlloc.descriptorSetCount = 1;
+        dsAlloc.pSetLayouts = &layout;
+        vkAllocateDescriptorSets(device, &dsAlloc, &ds);
+
+        VkDescriptorBufferInfo bufInfo = {};
+        bufInfo.buffer = *outBuffer;
+        bufInfo.offset = 0;
+        bufInfo.range = size;
+
+        VkWriteDescriptorSet write = {};
+        write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+        write.dstSet = ds;
+        write.dstBinding = 0;
+        write.descriptorCount = 1;
+        write.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+        write.pBufferInfo = &bufInfo;
+        vkUpdateDescriptorSets(device, 1, &write, 0, NULL);
+
+        return ds;
+    }
+
+    void setBgCallbacks(BgSetupCallback setup, BgDataCallback data, BgUpdateCallback update, void *userdata)
+    {
+        bgSetupCallback = setup;
+        bgDataCallback = data;
+        bgUpdateCallback = update;
+        bgUserdata = userdata;
+    }
+
+    void setBgDataCallback(BgDataCallback cb, void *userdata)
+    {
         bgDataCallback = cb;
-        bgUserdata     = userdata;
+        bgUserdata = userdata;
     }
 
     void drawFrame()
@@ -1042,6 +1138,10 @@ public:
         ImGui::Render();
 
         vkResetCommandBuffer(commandBuffers[currentFrame], 0);
+
+        if (bgUpdateCallback)
+            bgUpdateCallback(bgUserdata);
+
         recordCommandBuffer(commandBuffers[currentFrame], imageIndex);
 
         recordImGuiCommandBuffer(imageIndex);
