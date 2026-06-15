@@ -1102,10 +1102,10 @@ public:
         return ds;
     }
 
-    void createDescriptorSetLayout(VkDescriptorSetLayoutCreateInfo layoutCI, VkDescriptorSetLayout outLayout) {
-        chk(vkCreateDescriptorSetLayout(device, &layoutCI, NULL, &outLayout), "failed to create descriptor set layout!");
+    void createDescriptorSetLayout(VkDescriptorSetLayoutCreateInfo layoutCI, VkDescriptorSetLayout *outLayout) {
+        chk(vkCreateDescriptorSetLayout(device, &layoutCI, NULL, outLayout), "failed to create descriptor set layout!");
 
-        mainDeletionQueue.push_function([=]() { vkDestroyDescriptorSetLayout(device, outLayout, nullptr); });
+        mainDeletionQueue.push_function([=]() { vkDestroyDescriptorSetLayout(device, *outLayout, nullptr); });
     }
 
     VkDescriptorSet createSSBO(VkDeviceSize size, VkDescriptorSetLayout layout, void **outMapped, VkBuffer *outBuffer, VkDeviceMemory *outMemory)
