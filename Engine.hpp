@@ -164,7 +164,7 @@ private:
     VkPipelineLayout bgPipelineLayout;
 
     typedef void (*BgDataCallback)(VkCommandBuffer cmd, VkPipelineLayout layout, void *userdata);
-    typedef void (*BgSetupCallback)(VkDescriptorSetLayout *outLayout, uint32_t* outPushConstantSize, void *userdata);
+    typedef void (*BgSetupCallback)(VkDescriptorSetLayout *outLayout, uint32_t *outPushConstantSize, void *userdata);
     typedef void (*BgUpdateCallback)(void *userdata);
 
     BgSetupCallback bgSetupCallback = nullptr;
@@ -558,8 +558,6 @@ private:
         cbOff.attachmentCount = 1;
         cbOff.pAttachments = &blendOff;
 
-        
-
         VkPipelineLayoutCreateInfo bgLayoutCI = {};
         bgLayoutCI.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
 
@@ -572,15 +570,15 @@ private:
             bgLayoutCI.pSetLayouts = &bgDescriptorLayout;
         }
         // TODO: Change system
-        if (bgPushConstantSize > 0) {
+        if (bgPushConstantSize > 0)
+        {
             VkPushConstantRange bgPcRange = {};
             bgPcRange.stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
             bgPcRange.offset = 0;
             bgPcRange.size = bgPushConstantSize;
             bgLayoutCI.pushConstantRangeCount = 1;
-            bgLayoutCI.pPushConstantRanges    = &bgPcRange;
+            bgLayoutCI.pPushConstantRanges = &bgPcRange;
         }
-
 
         chk(vkCreatePipelineLayout(device, &bgLayoutCI, NULL, &bgPipelineLayout),
             "failed to create bg pipeline layout!");
@@ -1106,10 +1104,12 @@ public:
         return ds;
     }
 
-    void createDescriptorSetLayout(VkDescriptorSetLayoutCreateInfo layoutCI, VkDescriptorSetLayout *outLayout) {
+    void createDescriptorSetLayout(VkDescriptorSetLayoutCreateInfo layoutCI, VkDescriptorSetLayout *outLayout)
+    {
         chk(vkCreateDescriptorSetLayout(device, &layoutCI, NULL, outLayout), "failed to create descriptor set layout!");
 
-        mainDeletionQueue.push_function([=]() { vkDestroyDescriptorSetLayout(device, *outLayout, nullptr); });
+        mainDeletionQueue.push_function([=]()
+                                        { vkDestroyDescriptorSetLayout(device, *outLayout, nullptr); });
     }
 
     VkDescriptorSet createSSBO(VkDeviceSize size, VkDescriptorSetLayout layout, void **outMapped, VkBuffer *outBuffer, VkDeviceMemory *outMemory)
@@ -1145,6 +1145,9 @@ public:
         poolCI.poolSizeCount = 1;
         poolCI.pPoolSizes = &poolSize;
         vkCreateDescriptorPool(device, &poolCI, NULL, &pool);
+
+        mainDeletionQueue.push_function([=]()
+                                        { vkDestroyDescriptorPool(device, pool, nullptr); });
 
         VkDescriptorSet ds;
         VkDescriptorSetAllocateInfo dsAlloc = {};
@@ -1216,8 +1219,6 @@ public:
         ImGui::Render();
 
         vkResetCommandBuffer(commandBuffers[currentFrame], 0);
-
-        
 
         recordCommandBuffer(commandBuffers[currentFrame], imageIndex);
 
