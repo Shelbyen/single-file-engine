@@ -575,8 +575,8 @@ private:
         if (bgPushConstantSize > 0) {
             VkPushConstantRange bgPcRange = {};
             bgPcRange.stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
-            bgPcRange.offset     = 0;
-            bgPcRange.size       = bgPushConstantSize;
+            bgPcRange.offset = 0;
+            bgPcRange.size = bgPushConstantSize;
             bgLayoutCI.pushConstantRangeCount = 1;
             bgLayoutCI.pPushConstantRanges    = &bgPcRange;
         }
@@ -1031,6 +1031,10 @@ public:
         isInitialized = true;
     }
 
+    VkExtent2D getExtent() const { return swapChainExtent; }
+
+    VkDevice getDevice() const { return device; }
+
     void pushLayer(IGuiLayer *layer)
     {
         layer->onAttach();
@@ -1132,7 +1136,7 @@ public:
 
         VkDescriptorPool pool;
         VkDescriptorPoolSize poolSize = {};
-        poolSize.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+        poolSize.type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
         poolSize.descriptorCount = 1;
 
         VkDescriptorPoolCreateInfo poolCI = {};
@@ -1186,6 +1190,9 @@ public:
         vkWaitForFences(device, 1, &inFlightFences[currentFrame], VK_TRUE, UINT64_MAX);
         vkResetFences(device, 1, &inFlightFences[currentFrame]);
 
+        if (bgUpdateCallback)
+            bgUpdateCallback(bgUserdata);
+
         uint32_t imageIndex;
         VkResult result = vkAcquireNextImageKHR(device, swapChain, UINT64_MAX,
                                                 imageAvailableSemaphores[currentFrame],
@@ -1210,8 +1217,7 @@ public:
 
         vkResetCommandBuffer(commandBuffers[currentFrame], 0);
 
-        if (bgUpdateCallback)
-            bgUpdateCallback(bgUserdata);
+        
 
         recordCommandBuffer(commandBuffers[currentFrame], imageIndex);
 
