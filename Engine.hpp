@@ -320,7 +320,7 @@ private:
         swapChainImageFormat = createInfo.imageFormat;
         swapChainExtent = createInfo.imageExtent;
 
-        swapchainDeletionQueue.push_function([=]()
+        swapchainDeletionQueue.push_function([this]()
                                              { vkDestroySwapchainKHR(device, swapChain, nullptr); });
     }
 
@@ -411,7 +411,7 @@ private:
 
         chk(vkCreateRenderPass(device, &renderPassInfo, NULL, &renderPass), "failed to create render pass!");
 
-        mainDeletionQueue.push_function([=]()
+        mainDeletionQueue.push_function([this]()
                                         { vkDestroyRenderPass(device, renderPass, nullptr); });
     }
 
@@ -455,7 +455,7 @@ private:
 
         chk(vkCreateRenderPass(device, &renderPassInfo, NULL, &imguiRenderPass), "failed to create imgui render pass!");
 
-        mainDeletionQueue.push_function([=]()
+        mainDeletionQueue.push_function([this]()
                                         { vkDestroyRenderPass(device, imguiRenderPass, nullptr); });
     }
 
@@ -476,7 +476,7 @@ private:
 
             chk(vkCreateFramebuffer(device, &framebufferInfo, NULL, &swapChainFramebuffers[i]), "failed to create framebuffer!");
 
-            swapchainDeletionQueue.push_function([=]()
+            swapchainDeletionQueue.push_function([this, i]()
                                                  {
                 vkDestroyFramebuffer(device, swapChainFramebuffers[i], nullptr);
                 vkDestroyImageView(device, swapChainImageViews[i], nullptr); });
@@ -500,7 +500,7 @@ private:
 
             chk(vkCreateFramebuffer(device, &framebufferInfo, NULL, &imguiFramebuffers[i]), "failed to create imgui framebuffer!");
 
-            swapchainDeletionQueue.push_function([=]()
+            swapchainDeletionQueue.push_function([this, i]()
                                                  { vkDestroyFramebuffer(device, imguiFramebuffers[i], nullptr); });
         }
     }
@@ -582,7 +582,7 @@ private:
 
         chk(vkCreatePipelineLayout(device, &bgLayoutCI, NULL, &bgPipelineLayout),
             "failed to create bg pipeline layout!");
-        mainDeletionQueue.push_function([=]()
+        mainDeletionQueue.push_function([this]()
                                         { vkDestroyPipelineLayout(device, bgPipelineLayout, nullptr); });
 
         uint32_t vsz, fsz;
@@ -622,7 +622,7 @@ private:
 
         chk(vkCreateGraphicsPipelines(device, VK_NULL_HANDLE, 1, &bgPI, NULL, &bgPipeline),
             "failed to create bg pipeline!");
-        mainDeletionQueue.push_function([=]()
+        mainDeletionQueue.push_function([this]()
                                         { vkDestroyPipeline(device, bgPipeline, nullptr); });
 
         vkDestroyShaderModule(device, bgVert, nullptr);
@@ -655,7 +655,7 @@ private:
         circleLayoutCI.pPushConstantRanges = &pcRange;
         chk(vkCreatePipelineLayout(device, &circleLayoutCI, NULL, &figurePipelineLayout),
             "failed to create circle pipeline layout!");
-        mainDeletionQueue.push_function([=]()
+        mainDeletionQueue.push_function([this]()
                                         { vkDestroyPipelineLayout(device, figurePipelineLayout, nullptr); });
 
         auto *cv = readFile(FIGURE_SHADER ".vert.spv", &vsz);
@@ -694,7 +694,7 @@ private:
 
         chk(vkCreateGraphicsPipelines(device, VK_NULL_HANDLE, 1, &circlePI, NULL, &figurePipeline),
             "failed to create circle pipeline!");
-        mainDeletionQueue.push_function([=]()
+        mainDeletionQueue.push_function([this]()
                                         { vkDestroyPipeline(device, figurePipeline, nullptr); });
 
         vkDestroyShaderModule(device, circleVert, nullptr);
@@ -709,7 +709,7 @@ private:
         poolInfo.queueFamilyIndex = 0;
 
         chk(vkCreateCommandPool(device, &poolInfo, NULL, &commandPool), "failed to create command pool!");
-        mainDeletionQueue.push_function([=]()
+        mainDeletionQueue.push_function([this]()
                                         { vkDestroyCommandPool(device, commandPool, nullptr); });
     }
 
@@ -754,7 +754,7 @@ private:
             }
             else
             {
-                mainDeletionQueue.push_function([=]()
+                mainDeletionQueue.push_function([this, i]()
                                                 {
                     vkDestroyFence(device, inFlightFences[i], nullptr);
                     vkDestroySemaphore(device, imguiFinishedSemaphores[i], nullptr);
@@ -896,7 +896,7 @@ private:
         chk(vkCreateDescriptorPool(device, &poolInfo, nullptr, &imguiDescriptorPool),
             "failed to create imgui descriptor pool!");
 
-        mainDeletionQueue.push_function([=]()
+        mainDeletionQueue.push_function([this]()
                                         { vkDestroyDescriptorPool(device, imguiDescriptorPool, nullptr); });
     }
 
@@ -959,7 +959,7 @@ private:
         //     vkFreeCommandBuffers(device, commandPool, 1, &fontCmd);
         // }
 
-        mainDeletionQueue.push_function([=]()
+        mainDeletionQueue.push_function([this]()
                                         {
             ImGui_ImplVulkan_Shutdown();
             ImGui_ImplGlfw_Shutdown();
@@ -1108,7 +1108,7 @@ public:
     {
         chk(vkCreateDescriptorSetLayout(device, &layoutCI, NULL, outLayout), "failed to create descriptor set layout!");
 
-        mainDeletionQueue.push_function([=]()
+        mainDeletionQueue.push_function([this, &outLayout]()
                                         { vkDestroyDescriptorSetLayout(device, *outLayout, nullptr); });
     }
 
@@ -1146,7 +1146,7 @@ public:
         poolCI.pPoolSizes = &poolSize;
         vkCreateDescriptorPool(device, &poolCI, NULL, &pool);
 
-        mainDeletionQueue.push_function([=]()
+        mainDeletionQueue.push_function([this, &pool]()
                                         { vkDestroyDescriptorPool(device, pool, nullptr); });
 
         VkDescriptorSet ds;
