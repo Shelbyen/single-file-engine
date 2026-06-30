@@ -1202,10 +1202,7 @@ public:
                                                 VK_NULL_HANDLE, &imageIndex);
 
         if (result == VK_ERROR_OUT_OF_DATE_KHR)
-        {
-            resizeSwapchain();
-            return;
-        }
+            resizeRequested = true;
 
         ImGui_ImplVulkan_NewFrame();
         ImGui_ImplGlfw_NewFrame();
@@ -1274,9 +1271,6 @@ public:
         presentInfo.pImageIndices = &imageIndex;
 
         result = vkQueuePresentKHR(queue, &presentInfo);
-
-        if (result == VK_ERROR_OUT_OF_DATE_KHR)
-            resizeRequested = true;
 
         if (resizeRequested)
             resizeSwapchain();
